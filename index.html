@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tic Tac Toe Game</title>
+    <link rel="stylesheet" href="style.css">
+   
+</head>
+<body>
+    <div class="container">
+        <h1>Tic Tac Toe</h1>
+        
+        <div class="game-mode">
+            <h3>Game Mode</h3>
+            <div class="mode-buttons">
+                <button id="humanVsHuman" class="mode-btn active">Player vs Player</button>
+                <button id="humanVsAI" class="mode-btn">Player vs AI</button>
+            </div>
+            <div class="difficulty-selector" id="difficultySelector" style="display: none;">
+                <label for="difficulty">AI Difficulty:</label>
+                <select id="difficulty">
+                    <option value="easy">Easy</option>
+                    <option value="medium">Medium</option>
+                    <option value="hard">Hard (Unbeatable)</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="game-info">
+            <div class="current-player">
+                Current Player: <span id="currentPlayer">X</span>
+                <span id="aiIndicator" style="display: none;"> (AI)</span>
+            </div>
+            <div class="score">
+                <span>X: <span id="scoreX">0</span></span>
+                <span>O: <span id="scoreO">0</span></span>
+                <span>Ties: <span id="scoreTie">0</span></span>
+            </div>
+        </div>
+
+        <div class="game-board" id="gameBoard">
+            <div class="cell" data-index="0"></div>
+            <div class="cell" data-index="1"></div>
+            <div class="cell" data-index="2"></div>
+            <div class="cell" data-index="3"></div>
+            <div class="cell" data-index="4"></div>
+            <div class="cell" data-index="5"></div>
+            <div class="cell" data-index="6"></div>
+            <div class="cell" data-index="7"></div>
+            <div class="cell" data-index="8"></div>
+        </div>
+
+        <div class="game-status" id="gameStatus"></div>
+
+        <div class="controls">
+            <button id="resetBtn" class="btn">Reset Game</button>
+            <button id="newGameBtn" class="btn">New Game</button>
+        </div>
+    </div>
+
+    <script>
+        // Game state variables
+        let currentPlayer = 'X';
+        let gameBoard = ['', '', '', '', '', '', '', '', ''];
+        let gameActive = true;
+        let gameMode = 'human'; // 'human' or 'ai'
+        let aiDifficulty = 'medium'; // 'easy', 'medium', 'hard'
+        let aiPlayer = 'O'; // AI always plays as O, human as X
+        let scores = {
+            X: 0,
+            O: 0,
+            tie: 0
+        };
+
+        // Winning combinations
+        const winningCombinations = [
+            [0, 1, 2], // Top row
+            [3, 4, 5], // Middle row
+            [6, 7, 8], // Bottom row
+            [0, 3, 6], // Left column
+            [1, 4, 7], // Middle column
+            [2, 5, 8], // Right column
+            [0, 4, 8], // Diagonal top-left to bottom-right
+            [2, 4, 6]  // Diagonal top-right to bottom-left
+        ];
+
+        // DOM elements
+        const cells = document.querySelectorAll('.cell');
+        const currentPlayerElement = document.getElementById('currentPlayer');
+        const aiIndicatorElement = document.getElementById('aiIndicator');
+        const gameStatusElement = document.getElementById('gameStatus');
+        const resetBtn = document.getElementById('resetBtn');
+        const newGameBtn = document.getElementById('newGameBtn');
+        const scoreXElement = document.getElementById('scoreX');
+        const scoreOElement = document.getElementById('scoreO');
+        const scoreTieElement = document.getElementById('scoreTie');
+        const humanVsHumanBtn = document.getElementById('humanVsHuman');
+        const humanVsAIBtn = document.getElementById('humanVsAI');
+        const difficultySelector = document.getElementById('difficultySelector');
+        const difficultySelect = document.getElementById('difficulty');
+
+        // Wait for DOM to load
+        document.addEventListener('DOMContentLoaded', function() {
+            // Event listeners
+            cells.forEach(cell => {
+                cell.addEventListener('click', handleCellClick);
+            });
+
+            resetBtn.addEventListener('click', resetGame);
+            newGameBtn.addEventListener('click', newGame);
+            humanVsHumanBtn.addEventListener('click', () => setGameMode('human'));
+            humanVsAIBtn.addEventListener('click', () => setGameMode('ai'));
+            difficultySelect.addEventListener('change', (e) => {
+                aiDifficulty = e.target.value;
+            });
+
+            // Initialize game
+            initGame();
+
+            console.log('Game initialized!'); // Debug message
+        });
+
+        // Set game mode
+        function setGameMode(mode) {
+            gameMode = mode;
+            
+            // Update UI
+            if (mode === 'human') {
+                humanVsHumanBtn.classList.add('active');
+                humanVsAIBtn.classList.remove('active');
+                difficultySelector.style.display = 'none';
+            } else {
+                humanVsHumanBtn.classList.remove('active');
+                humanVsAIBtn.classList.add('active');
+                difficultySelector.style.display = 'block';
+            }
+            
+            // Reset game when mode changes
+            resetGame();
+        }
+
+        // Initialize game
+        function initGame() {
+            updateScoreDisplay();
+            updateCurrentPlayerDisplay();
+            console.log('Game state initialized'); // Debug message
+        }
+
+        // Handle cell click
+        function handleCellClick(event) {
+            console.log('Cell clicked!'); // Debug message
+            const cell = event.target;
+            const cellIndex = parseInt(cell.getAttribute('data-index'));
+
+            console.log('Cell index:', cellIndex, 'Current board:', gameBoard); // Debug
+
+            // Check if cell is already occupied or game is not active
+            if (gameBoard[cellIndex] !== '' || !gameActive) {
+                console.log('Invalid move - cell occupied or game inactive'); // Debug
+                return;
+            }
+
+            // In AI mode, only allow human moves when it's human's turn
+            if (gameMode === 'ai' && currentPlayer === aiPlayer) {
+                console.log('AI turn - human click ignored'); // Debug
+                return;
+            }
+
+            // Make move
+            makeMove(cellIndex, currentPlayer);
+        }
+
+        // Make a move
+        function makeMove(index, player) {
+            console.log(`Making move: ${player} at position ${index}`); // Debug
+            
+            gameBoard[index] = player;
+            const cell = cells[index];
+            
+            // Update cell display
+            cell.textContent = player;
+            cell.classList.add(player.toLowerCase());
+            
+            // Add animation effect
+            cell.style.transform = 'scale(0.9)';
+            setTimeout(() => {
+                cell.style.transform = 'scale(1)';
+            }, 100);
+
+            // Check for game end
+            const winner = checkWinner();
+            if (winner) {
+                console.log(`Winner found: ${currentPlayer}`); // Debug
+                gameActive = false;
+                highlightWinningCells(winner);
+                scores[currentPlayer]++;
+                updateScoreDisplay();
+                gameStatusElement.textContent = `Player ${currentPlayer} Wins!`;
+                gameStatusElement.className = 'game-status winner';
+                return;
+            }
+
+            if (checkTie()) {
+                console.log('Game tied'); // Debug
+                gameActive = false;
+                scores.tie++;
+                updateScoreDisplay();
+                gameStatusElement.textContent = "It's a Tie!";
+                gameStatusElement.className = 'game-status tie';
+                return;
+            }
+
+            // Switch player
+            currentPlayer = currentPlayer === 'X' ? 'O' : 'X';
+            updateCurrentPlayerDisplay();
+            gameStatusElement.textContent = '';
+            gameStatusElement.className = 'game-status';
+
+            // If it's AI mode and now it's AI's turn, make AI move
+            if (gameMode === 'ai' && currentPlayer === aiPlayer && gameActive) {
+                setTimeout(() => {
+                    makeAIMove();
+                }, 500); // Small delay for better UX
+            }
+        }
+
+        // Check for winner
+        function checkWinner() {
+            for (let combination of winningCombinations) {
+                const [a, b, c] = combination;
+                if (gameBoard[a] && gameBoard[a] === gameBoard[b] && gameBoard[a] === gameBoard[c]) {
+                    return combination;
+                }
+            }
+            return false;
+        }
+
+        // Check for tie
+        function checkTie() {
+            return gameBoard.every(cell => cell !== '');
+        }
+
+        // Highlight winning cells
+        function highlightWinningCells(winningCombination) {
+            if (winningCombination) {
+                winningCombination.forEach(index => {
+                    cells[index].classList.add('winning');
+                });
+            }
+        }
+
+        // Update current player display
+        function updateCurrentPlayerDisplay() {
+            currentPlayerElement.textContent = currentPlayer;
+            currentPlayerElement.style.color = currentPlayer === 'X' ? '#ff6b6b' : '#4ecdc4';
+            
+            // Show AI indicator when it's AI's turn
+            if (gameMode === 'ai' && currentPlayer === aiPlayer) {
+                aiIndicatorElement.style.display = 'inline';
+            } else {
+                aiIndicatorElement.style.display = 'none';
+            }
+        }
+
+        // AI Logic Functions
+        function makeAIMove() {
+            console.log(`AI making move with difficulty: ${aiDifficulty}`);
+            
+            let aiMoveIndex;
+            
+            switch (aiDifficulty) {
+                case 'easy':
+                    aiMoveIndex = getEasyAIMove();
+                    break;
+                case 'medium':
+                    aiMoveIndex = getMediumAIMove();
+                    break;
+                case 'hard':
+                    aiMoveIndex = getHardAIMove();
+                    break;
+                default:
+                    aiMoveIndex = getEasyAIMove();
+            }
+            
+            if (aiMoveIndex !== -1) {
+                makeMove(aiMoveIndex, aiPlayer);
+            }
+        }
+
+        // Easy AI: Random moves
+        function getEasyAIMove() {
+            const availableMoves = getAvailableMoves();
+            if (availableMoves.length === 0) return -1;
+            
+            return availableMoves[Math.floor(Math.random() * availableMoves.length)];
+        }
+
+        // Medium AI: Block player wins, try to win, otherwise random
+        function getMediumAIMove() {
+            // First, check if AI can win
+            const winMove = findWinningMove(aiPlayer);
+            if (winMove !== -1) return winMove;
+            
+            // Second, check if AI needs to block human from winning
+            const humanPlayer = aiPlayer === 'X' ? 'O' : 'X';
+            const blockMove = findWinningMove(humanPlayer);
+            if (blockMove !== -1) return blockMove;
+            
+            // Otherwise, make a random move
+            return getEasyAIMove();
+        }
+
+        // Hard AI: Unbeatable using minimax algorithm
+        function getHardAIMove() {
+            const bestMove = minimax(gameBoard, aiPlayer);
+            return bestMove.index;
+        }
+
+        // Find if a player can win in the next move
+        function findWinningMove(player) {
+            for (let i = 0; i < 9; i++) {
+                if (gameBoard[i] === '') {
+                    // Try the move
+                    gameBoard[i] = player;
+                    
+                    // Check if this move wins
+                    const isWinning = checkWinner();
+                    
+                    // Undo the move
+                    gameBoard[i] = '';
+                    
+                    if (isWinning) {
+                        return i;
+                    }
+                }
+            }
+            return -1;
+        }
+
+        // Get all available moves
+        function getAvailableMoves() {
+            return gameBoard.map((cell, index) => cell === '' ? index : null).filter(val => val !== null);
+        }
+
+        // Minimax algorithm for unbeatable AI
+        function minimax(board, player) {
+            const availableMoves = board.map((cell, index) => cell === '' ? index : null).filter(val => val !== null);
+            
+            // Check for terminal states
+            if (checkWinnerForBoard(board, aiPlayer)) {
+                return { score: 10 };
+            } else if (checkWinnerForBoard(board, aiPlayer === 'X' ? 'O' : 'X')) {
+                return { score: -10 };
+            } else if (availableMoves.length === 0) {
+                return { score: 0 };
+            }
+            
+            const moves = [];
+            
+            for (let i = 0; i < availableMoves.length; i++) {
+                const move = {};
+                move.index = availableMoves[i];
+                
+                // Make the move
+                board[availableMoves[i]] = player;
+                
+                // Recursively call minimax
+                if (player === aiPlayer) {
+                    const result = minimax(board, aiPlayer === 'X' ? 'O' : 'X');
+                    move.score = result.score;
+                } else {
+                    const result = minimax(board, aiPlayer);
+                    move.score = result.score;
+                }
+                
+                // Undo the move
+                board[availableMoves[i]] = '';
+                
+                moves.push(move);
+            }
+            
+            // Choose the best move
+            let bestMove;
+            if (player === aiPlayer) {
+                let bestScore = -10000;
+                for (let i = 0; i < moves.length; i++) {
+                    if (moves[i].score > bestScore) {
+                        bestScore = moves[i].score;
+                        bestMove = i;
+                    }
+                }
+            } else {
+                let bestScore = 10000;
+                for (let i = 0; i < moves.length; i++) {
+                    if (moves[i].score < bestScore) {
+                        bestScore = moves[i].score;
+                        bestMove = i;
+                    }
+                }
+            }
+            
+            return moves[bestMove];
+        }
+
+        // Check winner for a specific board state (used in minimax)
+        function checkWinnerForBoard(board, player) {
+            for (let combination of winningCombinations) {
+                const [a, b, c] = combination;
+                if (board[a] === player && board[b] === player && board[c] === player) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        // Update score display
+        function updateScoreDisplay() {
+            scoreXElement.textContent = scores.X;
+            scoreOElement.textContent = scores.O;
+            scoreTieElement.textContent = scores.tie;
+        }
+
+        // Reset game (keep scores)
+        function resetGame() {
+            console.log('Resetting game'); // Debug
+            gameBoard = ['', '', '', '', '', '', '', '', ''];
+            gameActive = true;
+            currentPlayer = 'X'; // Always start with X (human player)
+            
+            // Clear cells
+            cells.forEach(cell => {
+                cell.textContent = '';
+                cell.className = 'cell';
+            });
+            
+            // Reset UI
+            gameStatusElement.textContent = '';
+            gameStatusElement.className = 'game-status';
+            updateCurrentPlayerDisplay();
+            
+            // Add reset animation
+            cells.forEach((cell, index) => {
+                setTimeout(() => {
+                    cell.style.transform = 'scale(0.8)';
+                    setTimeout(() => {
+                        cell.style.transform = 'scale(1)';
+                    }, 100);
+                }, index * 50);
+            });
+        }
+
+        // New game (reset scores too)
+        function newGame() {
+            console.log('Starting new game'); // Debug
+            scores = { X: 0, O: 0, tie: 0 };
+            updateScoreDisplay();
+            resetGame();
+            
+            // Add celebration animation
+            const container = document.querySelector('.container');
+            container.style.transform = 'scale(0.95)';
+            setTimeout(() => {
+                container.style.transform = 'scale(1)';
+            }, 200);
+        }
+        
+    </script>
+
+<!-- web hosting -->
+
+<script type="module">
+
+
+  // Import the functions you need from the SDKs you need
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
+  import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-analytics.js";
+  // TODO: Add SDKs for Firebase products that you want to use
+  // https://firebase.google.com/docs/web/setup#available-libraries
+
+  // Your web app's Firebase configuration
+  // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+
+
+  require('dotenv').config()
+  var myapi=process.env.my_api
+  var api_id=process.env.my_api_id
+
+  const firebaseConfig = {
+    apiKey: myapi ,
+    authDomain: "tick-tack-toe-d78be.firebaseapp.com",
+    projectId: "tick-tack-toe-d78be",
+    storageBucket: "tick-tack-toe-d78be.firebasestorage.app",
+    messagingSenderId: "1076354235068",
+    appId: api_id,
+    measurementId: "G-15H3KH6THP"
+  };
+
+  // Initialize Firebase
+  const app = initializeApp(firebaseConfig);
+  const analytics = getAnalytics(app);
+</script>
+
+
+
+</body>
+</html>
